@@ -1,0 +1,70 @@
+name: AI‑Website CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      NICHE: ${{ steps.get-niche.outputs.niche }}
+
+    steps:
+      # 1️⃣ checkout the repo
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      # 2️⃣ set up Node (the scripts are plain Node, no runtime deps)
+      - name: Use Node.js 🟢
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3️⃣ read the niche (if missing, generate a new one)
+      - name: Get niche 🔎
+        id: get-niche
+        run: |
+          N=$(cat .niche)
+          echo "niche=$N" >> $GITHUB_OUTPUT
+
+      # 4️⃣ run the generation pipeline (only one HF call per step)
+      - name: Pick niche (if missing) 🤖
+        if: env.NICHE == ''
+        run: |
+          node generate/niche.js
+          N=$(cat .niche)
+          echo "niche=$N" >> $GITHUB_OUTPUT
+
+      - name: Generate website code 🧩
+        run: |
+          node generate/code.js "$NICHE"
+
+      - name: Add EmailJS init (once) 🛠️
+        run: |
+          node generate/init-services.js
+
+      - name: Generate SEO meta tags 🏷️
+        run: |
+          node generate/seo.js "$NICHE"
+
+      # 5️⃣ commit the generated files back to the repo (optional but handy)
+      - name: Commit generated files 📥
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/ .niche meta-tags.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "🤖 regenerate AI website (niche: $NICHE)"
+            git push origin main
+          else
+            echo "No changes to commit."
+          fi
+
+      # 6️⃣ Deploy to Netlify (free)
+      - name: Deploy to Netlify 🚀
+        uses: nwtg/netteleporter@v2
+        with:
+          netlify_token:      ${{ secrets.NETLIFY_TOKEN }}
+          netlify_site_id:    ${{ secrets.NETLIFY_SITE_ID }}
+          netlify_dir:        "./src"

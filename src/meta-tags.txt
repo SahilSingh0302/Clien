@@ -1,0 +1,3 @@
+<title>Photographer Portfolio – Fast, Beautiful, Free</title>
+<meta name="description" content="A sleek one‑page portfolio for photographers, built with AI.">
+<meta name="keywords" content="photographer, portfolio, ai, website">
